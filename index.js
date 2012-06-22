@@ -11,7 +11,7 @@ var net = require("net"),
     default_host = "127.0.0.1";
 
 // can set this to true to enable for all connections
-exports.debug_mode = true;
+exports.debug_mode = false;
 
 // hiredis might not be installed
 try {

@@ -452,6 +452,14 @@ RedisClient.prototype.on_data = function (data) {
     }
 };
 
+RedisClient.prototype.checkDiscard = function(){
+    var queue_len = this.command_queue.getLength();
+    if (this.should_discard && queue_len <= this.command_queue_low_water + 1 ) {
+        this.emit("drain");
+        this.should_discard = false;
+    }
+}
+
 RedisClient.prototype.return_error = function (err) {
     var command_obj = this.command_queue.shift(), queue_len = this.command_queue.getLength();
 
@@ -459,11 +467,9 @@ RedisClient.prototype.return_error = function (err) {
         this.emit("idle");
         this.command_queue = new Queue();
     }
-    if (this.should_discard && queue_len <= this.command_queue_low_water) {
-        this.emit("drain");
-        this.should_discard = false;
-    }
 
+    this.checkDiscard()
+    
     if (command_obj && typeof command_obj.callback === "function") {
         try {
             command_obj.callback(err);
@@ -537,10 +543,8 @@ RedisClient.prototype.return_reply = function (reply) {
         this.emit("idle");
         this.command_queue = new Queue();  // explicitly reclaim storage from old Queue
     }
-    if (this.should_discard && queue_len <= this.command_queue_low_water + 1) {
-        this.emit("drain");
-        this.should_discard = false;
-    }
+
+    this.checkDiscard()
 
     command_obj = this.command_queue.shift();
 
@@ -667,7 +671,7 @@ RedisClient.prototype.send_command = function (command, args, callback) {
         if(callback && typeof(callback) === 'function'){
             callback(new Error("Queue saturated items: "+this.command_queue.getLength()+" max: "+this.command_queue_high_water+" min to reached to be usable: "+this.command_queue_low_water))
         }
-        this.emit("drain")
+        this.checkDiscard()
         return false
     }
 
